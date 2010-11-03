@@ -1,0 +1,22 @@
+Compact Tiny-C language compiler created by Scala language.
+
+Tiny-CコンパイラのシンタックスをCompact式を使ったバージョンに変えたコンパイル言語です。
+
+オリジナルのTiny-Cの講義のURLはこちら
+
+http://www.hpcs.cs.tsukuba.ac.jp/~msato/lecture-note/comp-lecture/
+
+
+◆インストール方法
+
+scala 2.8をインストール
+
+mk.batを実行すればﾒｲｸできます。
+
+◆実行方法
+
+コンパイル
+scala stinyc.c test.cx
+
+実行
+a.exe or a
