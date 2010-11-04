@@ -37,14 +37,14 @@ object c extends Ast {
 		}
 	}
 
-	def symbol(st:Any):SymbolC = {
+	def symbol(st:Any):String = {
 		st match {
-		case a:String => getSymbol(makeSymbol(a))
+		case a:String => a
 		case _ => throw new Exception("syntax error")
 		}
 	}
 
-	def parameterList(st:Any):List[AST] = {
+	def parameterList(st:Any):List[String] = {
 		symbolList(st)
 	}
 
@@ -58,17 +58,17 @@ object c extends Ast {
 		}
 	}
 
-	def localVars(st:Any):(List[AST], Any) = {
+	def localVars(st:Any):(List[String], Any) = {
 		st match {
 		case (("var", s),"@", b) => (symbolList(s), b)
 		case x => (List(), x)
 		}
 	}
 
-	def symbolList(st:Any):List[AST] = {
+	def symbolList(st:Any):List[String] = {
 		st match {
-		case a:String => List(SYM(symbol(a)))
-		case (a, ",", b) => SYM(symbol(a)):: symbolList(b)
+		case a:String => List(a)
+		case (a, ",", b) => symbol(a) :: symbolList(b)
 		case _ => throw new Exception("syntax error")
 		}
 	}
@@ -99,8 +99,8 @@ object c extends Ast {
 	
 	def expr(st:Any):AST = {
 		st match {
-		case ((a,"[",b,"]"),"=",c) => SET_ARRAY_OP(SYM(symbol(a)),expr(b),expr(c))
-		case (a,"=",b) => EQ_OP(SYM(symbol(a)),expr(b))
+		case ((a,"[",b,"]"),"=",c) => SET_ARRAY_OP(symbol(a),expr(b),expr(c))
+		case (a,"=",b) => EQ_OP(symbol(a),expr(b))
 		case (a,"+",b) => PLUS_OP(expr(a),expr(b))
 		case (a,"-",b) => MINUS_OP(expr(a),expr(b))
 		case (a,"*",b) => MUL_OP(expr(a),expr(b))
@@ -110,10 +110,10 @@ object c extends Ast {
 		case compact.Str(a) => STR(a)
 		case a:String => SYM(symbol(a))
 		case a:Int => NUM(a)
-		case (a,"[",b,"]") => GET_ARRAY_OP(SYM(symbol(a)), expr(b))
+		case (a,"[",b,"]") => GET_ARRAY_OP(symbol(a), expr(b))
 		case ("println","(",b,")") => PRINTLN_OP(argList(b))
-		case (a,"(","void",")") => CALL_OP(SYM(symbol(a)), null)
-		case (a,"(",b,")") => CALL_OP(SYM(symbol(a)), argList(b))
+		case (a,"(","void",")") => CALL_OP(symbol(a), null)
+		case (a,"(",b,")") => CALL_OP(symbol(a), argList(b))
 		case (a,"@",b) => statement(a); statement(b)
 		}
 	}

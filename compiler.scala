@@ -46,7 +46,7 @@ object Compiler extends Ast {
 	case class EnvVarARG() extends EnvKind
 	case class EnvVarLocal() extends EnvKind
 	
-	case class Environment(var vr:SymbolC, var vr_kind:EnvKind, var pos:Int)
+	case class Environment(var vr:String, var vr_kind:EnvKind, var pos:Int)
 
 
 	def compileProgram(prg:Program) {
@@ -102,7 +102,7 @@ object Compiler extends Ast {
 	var local_var_pos = 0
 	var tmp_counter = 0
 
-	def compileStoreVar(vr:SymbolC, r:Int) {
+	def compileStoreVar(vr:String, r:Int) {
 		def t(env:List[Environment]) {
 			env match {
 			case List() => throw new Exception("undefined variable\n")
@@ -118,7 +118,7 @@ object Compiler extends Ast {
 		t(env)
 	}
 
-	def compileLoadVar(target:Int, vr:SymbolC) {
+	def compileLoadVar(target:Int, vr:String) {
 		def t(env:List[Environment]) {
 			env match {
 			case List() => throw new Exception("undefined variable")
@@ -134,26 +134,26 @@ object Compiler extends Ast {
 		t(env)
 	}
 
-	def compileDefineFunction(fsym:Ast#SymbolC, params:List[Ast#AST], body:Ast#AST) {
+	def compileDefineFunction(fsym:String, params:List[String], body:Ast#AST) {
 
 		initGenCode()
 		local_var_pos = 0
 		
-		def getEnv(ps:List[AST], param_pos:Int, env:List[Environment]):List[Environment] = {
+		def getEnv(ps:List[String], param_pos:Int, env:List[Environment]):List[Environment] = {
 			ps match {
 			case List() => env
 			case x::xs =>
 				getEnv(
 					xs,
 					param_pos + 1,
-					Environment(getSymbol(x), EnvVarARG(), param_pos)::env
+					Environment(x, EnvVarARG(), param_pos)::env
 				)
 			}
 		}
-		env = getEnv(params.asInstanceOf[List[AST]], 0, List[Environment]())
+		env = getEnv(params, 0, List[Environment]())
 
 		compileStatement(body.asInstanceOf[AST])
-		genFuncCode(fsym.name, local_var_pos)
+		genFuncCode(fsym, local_var_pos)
 		env = List[Environment]() // reset
 	}
 
@@ -169,14 +169,14 @@ object Compiler extends Ast {
 	    }
 	}
 
-	def compileBlock(local_vars:List[AST], statements:List[AST]) {
+	def compileBlock(local_vars:List[String], statements:List[AST]) {
 		val env_save = env
 		
-		def getEnv(lv:List[AST],env:List[Environment]):List[Environment] = {
+		def getEnv(lv:List[String], env:List[Environment]):List[Environment] = {
 			lv match {
 			case List() => env
 			case x::xs =>
-				val e = Environment(getSymbol(x), EnvVarLocal(), local_var_pos)::env
+				val e = Environment(x, EnvVarLocal(), local_var_pos)::env
 				local_var_pos += 1
 				getEnv(xs, e)
 			}
@@ -205,9 +205,9 @@ object Compiler extends Ast {
 		}
 	}
 
-	def compileCallFunc(target:Int, f:SymbolC, args:List[AST]) {
+	def compileCallFunc(target:Int, f:String, args:List[AST]) {
 		val narg = compileArgs(args)
-		genCode(CALL(target, narg, f.name))
+		genCode(CALL(target, narg, f))
 	}
 
 	def compileArgs(args:List[AST]):Int = {
@@ -267,13 +267,13 @@ object Compiler extends Ast {
 	    p match {
 	    case null =>
 	    case NUM(v) => genCode(LOADI(target, v))
-	    case SYM(_) => compileLoadVar(target,getSymbol(p));
+	    case SYM(s) => compileLoadVar(target, s);
 	    case EQ_OP(l, r) =>
 			if(target != -1) throw new Exception("assign has no value")
 			val r1 = tmp_counter
 			tmp_counter += 1
 			compileExpr(r1, r)
-			compileStoreVar(getSymbol(l), r1)
+			compileStoreVar(l, r1)
 	    case PLUS_OP(l, r) =>
 			val r1 = tmp_counter
 			tmp_counter += 1
@@ -319,7 +319,7 @@ object Compiler extends Ast {
 			compileExpr(r2, r)
 			genCode(GT(target, r1, r2))
 
-	    case CALL_OP(l, r) => compileCallFunc(target,getSymbol(l), r)
+	    case CALL_OP(l, r) => compileCallFunc(target,l, r)
 	    case PRINTLN_OP(l) =>
 			if(target != -1) throw new Exception("println has no value")
 			printFunc(l)
@@ -347,14 +347,14 @@ object Compiler extends Ast {
 	/**
 	 * global variable
 	 */
-	def compileDeclareVariable(vsym:Ast#SymbolC, init_value:Ast#AST) {
+	def compileDeclareVariable(vsym:String, init_value:Ast#AST) {
 		// not implemented
 	}
 
 	/**
 	 * Array
 	 */
-	def compileDeclareArray(a:Ast#SymbolC, size:Ast#AST) {
+	def compileDeclareArray(a:String, size:Ast#AST) {
 		// not implemented
 	}
 
