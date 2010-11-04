@@ -432,7 +432,7 @@ object Compiler extends Ast {
 				val rr = getReg(r)
 				tmpRegSave(i) = -1
 				// load into regsiter
-				println("\tmovl\t" + TMP_OFF(i) + "(%ebp)," + tmpRegName(rr))
+				asm.movl(TMP_OFF(i) + "(%ebp)", tmpRegName(rr))
 				return rr
 			}
 		}
@@ -447,7 +447,7 @@ object Compiler extends Ast {
 		if(tmpRegState(reg) < 0) return
 		for (i <- 0 until N_SAVE) {
 			if (tmpRegSave(i) < 0) {
-				println("\tmovl\t" + tmpRegName(reg) + "," + TMP_OFF(reg) + "(%ebp)")
+				asm.movl(tmpRegName(reg), TMP_OFF(reg) + "(%ebp)")
 				tmpRegSave(i) = tmpRegState(reg)
 				tmpRegState(reg) = -1
 				return
