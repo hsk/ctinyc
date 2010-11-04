@@ -44,13 +44,8 @@ object c extends Ast {
 		}
 	}
 
-	def parameterList(st:Any):AST = {
-		st match {
-		case ("(", "void", ")") => null
-		case ("(", s, ")") => symbolList(s)
-		case "void" => null
-		case _ => throw new Exception("syntax error '" + st + "'")
-		}
+	def parameterList(st:Any):List[AST] = {
+		symbolList(st)
 	}
 
 	def block(st:Any):BLOCK_STATEMENT = {
@@ -63,39 +58,39 @@ object c extends Ast {
 		}
 	}
 
-	def localVars(st:Any):(AST, Any) = {
+	def localVars(st:Any):(List[AST], Any) = {
 		st match {
 		case (("var", s),"@", b) => (symbolList(s), b)
-		case x => (null, x)
+		case x => (List(), x)
 		}
 	}
 
-	def symbolList(st:Any):AST = {
+	def symbolList(st:Any):List[AST] = {
 		st match {
-		case a:String => makeList1(SYM(symbol(a)))
-		case (a, ",", b) => LIST(SYM(symbol(a)), symbolList(b))
+		case a:String => List(SYM(symbol(a)))
+		case (a, ",", b) => SYM(symbol(a)):: symbolList(b)
 		case _ => throw new Exception("syntax error")
 		}
 	}
 
-	def statements(st:Any):AST = {
+	def statements(st:Any):List[AST] = {
 		st match {
-		case (a, "@", b) => LIST(statement(a),statements(b))
-		case a => makeList1(statement(a))
+		case (a, "@", b) => statement(a)::statements(b)
+		case a => List(statement(a))
 		}
 	}
 
 	def statement(st:Any):AST = {
 		st match {
-		case ("{", a, "}") => statements(a)
-		case ("if", "(", a, ")", (b, "else", c)) => IF_STATEMENT(expr(a),makeList2(block(b), block(c)))
-		case ("if", "(", a, ")", b) => IF_STATEMENT(expr(a),makeList2(block(b),null))
+		case ("{", a, "}") => block(st)
+		case ("if", "(", a, ")", (b, "else", c)) => IF_STATEMENT(expr(a), block(b), block(c))
+		case ("if", "(", a, ")", b) => IF_STATEMENT(expr(a), block(b), null)
 		case ("return", ";") => RETURN_STATEMENT(null)
 		case ("return", a) => RETURN_STATEMENT(expr(a))
 		case ("while", "(", a, ")", b) => WHILE_STATEMENT(expr(a), block(b))
 		case ("for", "(", a, ")", b1) =>
 			a match {
-			case (((a,";"),"@",(b,";")),"@",c) => FOR_STATEMENT(makeList3(expr(a),expr(b),expr(c)),block(b1))
+			case (((a,";"),"@",(b,";")),"@",c) => FOR_STATEMENT(expr(a),expr(b),expr(c),block(b1))
 			}
 		case (a,";") => statement(a)
 		case a => expr(a)
@@ -104,7 +99,7 @@ object c extends Ast {
 	
 	def expr(st:Any):AST = {
 		st match {
-		case ((a,"[",b,"]"),"=",c) => SET_ARRAY_OP(makeList2(SYM(symbol(a)),expr(b)),expr(c))
+		case ((a,"[",b,"]"),"=",c) => SET_ARRAY_OP(SYM(symbol(a)),expr(b),expr(c))
 		case (a,"=",b) => EQ_OP(SYM(symbol(a)),expr(b))
 		case (a,"+",b) => PLUS_OP(expr(a),expr(b))
 		case (a,"-",b) => MINUS_OP(expr(a),expr(b))
@@ -123,10 +118,10 @@ object c extends Ast {
 		}
 	}
 	
-	def argList(st:Any):AST = {
+	def argList(st:Any):List[AST] = {
 		st match {
-		case (a,",",b) => addLast(argList(a),expr(b))
-		case a => makeList1(expr(a))
+		case (a,",",b) => argList(a) ::: List(expr(b))
+		case a => List(expr(a))
 		}
 	}
 

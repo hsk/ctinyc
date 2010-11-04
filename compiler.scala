@@ -134,20 +134,24 @@ object Compiler extends Ast {
 		t(env)
 	}
 
-	def compileDefineFunction(fsym:Ast#SymbolC, params:Ast#AST, body:Ast#AST) {
+	def compileDefineFunction(fsym:Ast#SymbolC, params:List[Ast#AST], body:Ast#AST) {
 
 		initGenCode()
 		local_var_pos = 0
 		
-		def getEnv(ps:AST, param_pos:Int, env:List[Environment]):List[Environment] = {
-			if (ps == null) env
-			else getEnv(
-				getNext(ps),
-				param_pos + 1,
-				Environment(getSymbol(getFirst(ps)), EnvVarARG(), param_pos)::env
-			)
+		def getEnv(ps:List[AST], param_pos:Int, env:List[Environment]):List[Environment] = {
+			ps match {
+			case List() => env
+			case x::xs =>
+				getEnv(
+					xs,
+					param_pos + 1,
+					Environment(getSymbol(x), EnvVarARG(), param_pos)::env
+				)
+			}
 		}
-		env = getEnv(params.asInstanceOf[AST], 0, List[Environment]())
+		env = getEnv(params.asInstanceOf[List[AST]], 0, List[Environment]())
+
 		compileStatement(body.asInstanceOf[AST])
 		genFuncCode(fsym.name, local_var_pos)
 		env = List[Environment]() // reset
@@ -158,26 +162,35 @@ object Compiler extends Ast {
 	    case null =>
 	    case BLOCK_STATEMENT(l, r) => compileBlock(l, r)
 	    case RETURN_STATEMENT(l) => compileReturn(l)
-	    case IF_STATEMENT(l, r) => compileIf(l, getNth(r, 0), getNth(r, 1))
+	    case IF_STATEMENT(l, r1, r2) => compileIf(l, r1, r2)
 	    case WHILE_STATEMENT(l, r) => compileWhile(l, r)
-	    case FOR_STATEMENT(l, r) => compileFor(getNth(l, 0), getNth(l, 1), getNth(l, 2), r)
+	    case FOR_STATEMENT(l1, l2, l3, r) => compileFor(l1, l2, l3, r)
 		case _ => compileExpr(-1, p)
 	    }
 	}
 
-	def compileBlock(local_vars:AST, statements:AST) {
+	def compileBlock(local_vars:List[AST], statements:List[AST]) {
 		val env_save = env
-		var lv = local_vars
-		while (lv != null) {
-			env = Environment(getSymbol(getFirst(lv)), EnvVarLocal(), local_var_pos)::env
-			local_var_pos += 1
-			lv = getNext(lv)
+		
+		def getEnv(lv:List[AST],env:List[Environment]):List[Environment] = {
+			lv match {
+			case List() => env
+			case x::xs =>
+				val e = Environment(getSymbol(x), EnvVarLocal(), local_var_pos)::env
+				local_var_pos += 1
+				getEnv(xs, e)
+			}
 		}
-		var st = statements
-		while(st != null) {
-			compileStatement(getFirst(st))
-			st = getNext(st)
+		env = getEnv(local_vars, env)
+
+		def stm(st:List[AST]) {
+			st match {
+			case List() =>
+			case x::xs =>  compileStatement(x); stm(xs)
+			}
 		}
+		stm(statements)
+
 		env = env_save
 	}
 
@@ -192,21 +205,21 @@ object Compiler extends Ast {
 		}
 	}
 
-	def compileCallFunc(target:Int, f:SymbolC, args:AST) {
+	def compileCallFunc(target:Int, f:SymbolC, args:List[AST]) {
 		val narg = compileArgs(args)
 		genCode(CALL(target, narg, f.name))
 	}
 
-	def compileArgs(args:AST):Int = {
-		if (args != null) {
-			val n = compileArgs(getNext(args))
+	def compileArgs(args:List[AST]):Int = {
+		args match {
+		case List() => 0
+		case x::xs => 
+			val n = compileArgs(xs)
 			val r = tmp_counter
 			tmp_counter += 1
-			compileExpr(r, getFirst(args))
+			compileExpr(r, x)
 			genCode(ARG(r))
 			n + 1
-		} else {
-			0
 		}
 	}
 
@@ -313,25 +326,19 @@ object Compiler extends Ast {
 
 	    case GET_ARRAY_OP(_,_) =>
 			// not implemented
-	    case SET_ARRAY_OP(_,_) =>
+	    case SET_ARRAY_OP(_,_,_) =>
 			// not implemented
 		case _ => throw new Exception("unknown operater/statement")
 	    }
 	}
 
-	private def printFunc(args:AST) {
+	private def printFunc(args:List[AST]) {
 		args match {
-		case LIST(STR(a),b) =>
+		case STR(a)::b::xs =>
 			val l = genString(a)
 			val r = tmp_counter
 			tmp_counter += 1
-			compileExpr(r, getNth(args, 1))
-			genCode(PRINTLN(r, l))
-		case LIST(SYM(SymbolC(a)),b) =>
-			val l = genString(a)
-			val r = tmp_counter
-			tmp_counter += 1
-			compileExpr(r, getNth(args, 1))
+			compileExpr(r, b)
 			genCode(PRINTLN(r, l))
 		case _ => throw new Exception("println param error" + args)
 		}
