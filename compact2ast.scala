@@ -9,7 +9,7 @@ object c extends Ast {
 	def main(args:Array[String]) {
 		val src = new Scanner(new File(args(0))).useDelimiter("\\Z").next()
 
-		val st = compact.main.parse(src)
+		val st = compact.main.read(src)
 		println(st)
 		val ast = program(st)
 		println(ast)

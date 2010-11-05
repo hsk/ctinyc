@@ -134,7 +134,7 @@ object Compiler extends Ast {
 		t(env)
 	}
 
-	def compileDefineFunction(fsym:String, params:List[String], body:Ast#AST) {
+	def compileDefineFunction(fsym:String, params:List[String], body:AST) {
 
 		initGenCode()
 		local_var_pos = 0
@@ -152,7 +152,7 @@ object Compiler extends Ast {
 		}
 		env = getEnv(params, 0, List[Environment]())
 
-		compileStatement(body.asInstanceOf[AST])
+		compileStatement(body)
 		genFuncCode(fsym, local_var_pos)
 		env = List[Environment]() // reset
 	}
@@ -347,14 +347,14 @@ object Compiler extends Ast {
 	/**
 	 * global variable
 	 */
-	def compileDeclareVariable(vsym:String, init_value:Ast#AST) {
+	def compileDeclareVariable(vsym:String, init_value:AST) {
 		// not implemented
 	}
 
 	/**
 	 * Array
 	 */
-	def compileDeclareArray(a:String, size:Ast#AST) {
+	def compileDeclareArray(a:String, size:AST) {
 		// not implemented
 	}
 

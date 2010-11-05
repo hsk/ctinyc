@@ -159,4 +159,168 @@ object main {
 		}
 		exp(0)(AS(null, tokens)).a
 	}
+	def read(s:String):Any = try {
+		var env = new Env(null)
+		env + ("macros" -> new Stack[(Any,Any)]())
+		Macro.expand(parse(s),env)
+	} catch {
+	case e => println(e);-1
+	}
+	
+	def eval(s:String):Any = try {
+		var env = new Env(null)
+		env + ("macros" -> new Stack[(Any,Any)]())
+		var exp = Macro.expand(parse(s),env)
+		eval(exp,env)
+	} catch {
+	case e => println(e);-1
+	}
+	class Env (val parent:Env) {
+		var e:HashMap[Any, Any] = new HashMap
+		def apply(a:Any):Any = {
+			if (e.contains(a)) e(a)
+			else if(parent != null)parent(a)
+			else null
+		}
+		def contains(a:Any) : Boolean = {
+			if(e.contains(a)) true
+			else if(parent == null) false
+			else parent.contains(a)
+		}
+		def +(kv : (Any, Any)) : Env = {
+			def add(env:Env, kv:(Any, Any)) : Boolean = {
+				kv match {
+				case (a, b) =>
+					if(env.e.contains(a)) { env.e + kv; true }
+					else (env.parent != null && add(env.parent, kv))
+				}
+			}
+			if(!add(this, kv)) e + kv
+			this
+		}
+		override def toString():String = {
+			e.toString()+"\nparent:"+parent
+		}
+	}
+
+	case class Fun(prms:Any,body:Any,e:Env) {
+		override def  toString():String = {
+			return "Fun("+prms+","+body+")"
+		}
+	}
+	object Macro {
+		def qq(a:Any, e:Env):Any = {
+			a match {
+			case (a,b) => (qq(a,e),qq(b,e))
+			case (a,b,c) => (qq(a,e),qq(b,e),qq(c,e))
+			case ("qe","{",b,"}") => b
+			case ("q","{",b,"}") => a
+			case ("uq","{",b,"}") => eval(b,e)
+			case (a,b,c,d) => (qq(a,e),qq(b,e),qq(c,e),qq(d,e))
+			case (a,b,c,d,f) => (qq(a,e),qq(b,e),qq(c,e),qq(d,e),qq(f,e))
+			case a => a
+			}
+		}
+
+		def expand(a:Any, e:Env):Any = {
+			(a,e) match {
+			case Macro(a,e) => a
+			case ((a,b),e) => (expand(a,e),expand(b,e))
+			case ((("mac","(",b,")",c),"@", xs),e) => e("macros").asInstanceOf[Stack[(Any,Any)]].push((b,c)); expand(xs, e)
+			case ((a,b,c),e) => (expand(a,e),expand(b,e),expand(c,e))
+			case ((a,b,c,d),e) => (expand(a,e),expand(b,e),expand(c,e),expand(d,e))
+			case ((a,b,c,d,f),e) => (expand(a,e),expand(b,e),expand(c,e),expand(d,e),expand(f,e))
+			case (a,e) => a
+			}
+		}
+
+		def unapply(arg:(Any,Env)):Option[(Any,Env)]=arg match {
+		case (("add","(",(b,",",c),")"),env) => Some((b,"+",c),env)
+		case (a,e) =>
+			for((prms,body) <- (e("macros").asInstanceOf[Stack[(Any,Any)]])) {
+				var env = match5(prms,a,e)
+				if(env != null) return Some(eval(body, env),e)
+			}
+			None
+		}
+
+		def match5(a:Any,b:Any,e:Env):Env = {
+			var m = new Env(e)
+			def mat(a:Any,b:Any):Boolean = {
+				(a,b) match {
+				case (Symbol(n),b) => m + (n -> b);true
+				case ((a1,a2),(b1,b2)) => mat(a1,b1)&&mat(a2,b2)
+				case ((a1,a2,a3),(b1,b2,b3)) => mat(a1,b1)&&mat(a2,b2)&&mat(a3,b3)
+				case ((a1,a2,a3,a4),(b1,b2,b3,b4)) => mat(a1,b1)&&mat(a2,b2)&&mat(a3,b3)&&mat(a4,b4)
+				case ((a1,a2,a3,a4,a5),(b1,b2,b3,b4,b5)) => mat(a1,b1)&&mat(a2,b2)&&mat(a3,b3)&&mat(a4,b4)&&mat(a5,b5)
+				case (a,b) if(a==b)=> true
+				case _ => false
+				}
+			}
+			if(mat(a,b)) m
+			else null
+		}
+	}
+
+	def append(a:Any,op:String, b:Any):Any = {
+		a match {
+		case (a, `op` ,as) => (a,op,append(as,op,b))
+		case a => (a,op,b)
+		}
+	}
+	// c like expression evaluator
+	def eval(a:Any, e:Env):Any = {
+		//println("eval("+a+")");
+		a match {
+		case (a,"=",b) => val r = eval(b,e);  e + (a -> r); r
+		case (a,"==",b) => if(eval(a,e) == eval(b,e))-1 else 0
+		case (a,"<=",b) => (eval(a,e),eval(b,e)) match {
+			case (a:Int, b:Int) => if(a <= b) -1 else 0
+			case (a1, b1) => throw new Error("unknown "+a +"<= "+ b +" -> " + a1 + "<= "+ b1)
+			}
+		case (a,"++") => val r = e(a); e + (a -> (r.asInstanceOf[Int] + 1)); r
+		case (a,"@", b) => eval(a, e); eval(b, e)
+		case ("print","(", a,")") => val r = eval(a, e); println(r);r
+		case ("eval","(",b,")") => eval(eval(Macro.expand(b,e),e),e)
+		case (a,"(",b,")") =>
+			(eval(a,e),eval(b,e)) match {
+			case (a:Int,b:Int) => a + b
+			case (Fun(a, body, e),b) =>
+				// arguments bind
+				var e2 = new Env(e)
+				def bind(a:Any, b:Any) {
+					(a, b) match {
+					case ((a,",",as),(b,",",bs)) => e2.e + (a -> b); bind(as, bs)
+					case (a,b) => e2.e + (a -> b)
+					}
+				}
+				bind(a, b)
+				eval(body, e2)
+			case (_,_)=> throw new Error("unknown function:"+a);
+			}
+		
+		case ((a,"(",b,")"),"{",c,"}") => eval((a,"(",append(b,",",Fun("void",c,e)),")"), e)
+		case ("q","{",b,"}") => b
+		case ("qq","{",b,"}") => Macro.qq(b, e)
+		case ("qqq","{",b,"}") => Macro.qq(eval(b,e), e)
+		case (a,"{",b,"}") => eval(a, e).asInstanceOf[Int] * eval(b, e).asInstanceOf[Int]
+		case (a,"[",b,"]") => eval(a, e).asInstanceOf[Int] - eval(b, e).asInstanceOf[Int]
+		case ("(",a,")") => eval(a, e)
+		case ("{",a,"}") => eval(a, e)
+		case (a,"+",b) => eval(a, e).asInstanceOf[Int] + eval(b, e).asInstanceOf[Int]
+		case (a,"*",b) => eval(a, e).asInstanceOf[Int] * eval(b, e).asInstanceOf[Int]
+		case (a,"-",b) => eval(a, e).asInstanceOf[Int] - eval(b, e).asInstanceOf[Int]
+		case (a,"/",b) => eval(a, e).asInstanceOf[Int] / eval(b, e).asInstanceOf[Int]
+		case (a,",",b) => (eval(a, e),",",eval(b,e))
+		case ("-",a)   => -(eval(a, e).asInstanceOf[Int])
+		case (a, ";")  => eval(a, e)
+		case ("if","(",a,")",(b,"else",c)) => if(eval(a,e) != 0) eval(b, e) else eval(c, e)
+		case ("if","(",a,")", b) => if(eval(a, e) != 0) eval(b, e) else 0
+		case ("fun","(",a,")",b) => val rc = Fun(a,b,e); rc
+		case a:Fun => a
+		case a:String => e(a)
+		case a:Symbol => a
+		case a:Int => a
+		case a => throw new Error("runtime error " + a)
+	}}
 }

@@ -1,0 +1,5 @@
+mac (add1('a)) ( a + 1 )
+
+def main = fun() {
+	println("s = %d", add1(5));
+}
