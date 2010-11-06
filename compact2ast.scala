@@ -2,19 +2,8 @@
  * compact to ast translator
  */
 package ctinyc
-import java.util.Scanner
-import java.io.File
 
-object c extends Ast {
-	def main(args:Array[String]) {
-		val src = new Scanner(new File(args(0))).useDelimiter("\\Z").next()
-
-		val st = compact.main.read(src)
-		println(st)
-		val ast = program(st)
-		println(ast)
-		Compiler.compileProgram(ast.asInstanceOf[Compiler.Program])
-	}
+object compact2ast extends Ast {
 
 	def program(st:Any):Program = {
 		Program(externalDefinitions(st))

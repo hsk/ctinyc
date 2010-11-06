@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 h_sakurai, freecluster.net. All rights reserved.
+ * Copyright (c) 2010-2011 h_sakurai, freecluster.net. All rights reserved.
  *
  * compact.scala
  * Functional Top Down Operator Precedence Compact eXPression parser
